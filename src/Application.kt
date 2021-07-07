@@ -2,6 +2,7 @@ package com.joseph
 
 import com.joseph.routes.createRoomRoute
 import com.joseph.routes.getRoomsRoute
+import com.joseph.routes.joinRoomRoute
 import com.joseph.session.DrawingSession
 import io.ktor.application.*
 import io.ktor.response.*
@@ -44,6 +45,7 @@ fun Application.module(testing: Boolean = false) {
     install(Routing) {
         createRoomRoute()
         getRoomsRoute()
+        joinRoomRoute()
     }
 }
 
