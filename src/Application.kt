@@ -1,6 +1,7 @@
 package com.joseph
 
 import com.joseph.routes.createRoomRoute
+import com.joseph.routes.getRoomsRoute
 import com.joseph.session.DrawingSession
 import io.ktor.application.*
 import io.ktor.response.*
@@ -42,6 +43,7 @@ fun Application.module(testing: Boolean = false) {
     install(WebSockets)
     install(Routing) {
         createRoomRoute()
+        getRoomsRoute()
     }
 }
 

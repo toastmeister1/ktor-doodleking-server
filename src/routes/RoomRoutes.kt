@@ -3,6 +3,7 @@ package com.joseph.routes
 import com.joseph.data.Room
 import com.joseph.data.models.BasicApiResponse
 import com.joseph.data.models.CreateRoomRequest
+import com.joseph.data.models.RoomResponse
 import com.joseph.other.Constants.MAX_ROOM_SIZE
 import com.joseph.server
 import io.ktor.application.*
@@ -48,6 +49,27 @@ fun Route.createRoomRoute() {
             println("Room created: ${roomRequest.name}")
 
             call.respond(HttpStatusCode.OK, BasicApiResponse(true))
+        }
+    }
+}
+
+fun Route.getRoomsRoute() {
+    route("/api/getRooms") {
+        get {
+            val searchQuery = call.parameters["searchQuery"]
+            if(searchQuery == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            val roomsResult = server.rooms.filterKeys {
+                it.contains(searchQuery, ignoreCase = true)
+            }
+            val roomResponse = roomsResult.values.map { room ->
+                RoomResponse(room.name, room.maxPlayers, room.players.size)
+            }.sortedBy { it.name }
+
+            call.respond(HttpStatusCode.OK, roomResponse)
         }
     }
 }
