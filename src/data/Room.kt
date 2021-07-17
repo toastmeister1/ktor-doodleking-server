@@ -1,10 +1,8 @@
 package com.joseph.data
 
-import com.joseph.data.models.Announcement
-import com.joseph.data.models.ChosenWord
-import com.joseph.data.models.GameState
-import com.joseph.data.models.PhaseChange
+import com.joseph.data.models.*
 import com.joseph.gson
+import com.joseph.other.getRandomWords
 import com.joseph.other.transformToUnderscores
 import com.joseph.other.words
 import io.ktor.http.cio.websocket.*
@@ -20,6 +18,7 @@ data class Room(
     private var winningPlayers = listOf<String>()
     private var word: String? = null
     private var curWords: List<String>? = null
+    private var drawingPlayerIndex = 0
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -145,7 +144,13 @@ data class Room(
     }
 
     private fun newRound() {
-
+        curWords = getRandomWords(3)
+        val newWords = NewWords(curWords!!)
+        nextDrawingPlayer()
+        GlobalScope.launch {
+            drawingPlayer?.socket?.send(Frame.Text(gson.toJson(newWords)))
+            timeAndNotify(DELAY_NEW_ROUND_TO_GAME_RUNNING)
+        }
     }
 
     private fun gameRunning() {
@@ -189,6 +194,20 @@ data class Room(
 
             println("Drawing phase in room $name started. It'll last ${DELAY_GAME_RUNNING_TO_SHOW_WORD / 1000}s")
         }
+    }
+
+    private fun nextDrawingPlayer() {
+        drawingPlayer?.isDrawing = false
+        if(players.isEmpty()) {
+            return
+        }
+
+        drawingPlayer = if(drawingPlayerIndex <= players.size - 1) {
+            players[drawingPlayerIndex]
+        } else players.last()
+
+        if(drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
+        else drawingPlayerIndex = 0
     }
 
     enum class Phase {
