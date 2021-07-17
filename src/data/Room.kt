@@ -2,8 +2,11 @@ package com.joseph.data
 
 import com.joseph.data.models.Announcement
 import com.joseph.data.models.ChosenWord
+import com.joseph.data.models.GameState
 import com.joseph.data.models.PhaseChange
 import com.joseph.gson
+import com.joseph.other.transformToUnderscores
+import com.joseph.other.words
 import io.ktor.http.cio.websocket.*
 import kotlinx.coroutines.*
 
@@ -16,6 +19,7 @@ data class Room(
     private var drawingPlayer: Player? = null
     private var winningPlayers = listOf<String>()
     private var word: String? = null
+    private var curWords: List<String>? = null
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -145,7 +149,27 @@ data class Room(
     }
 
     private fun gameRunning() {
+        winningPlayers = listOf()
+        val wordToSend = word ?: curWords?.random() ?: words.random()
+        val wordWithUnderScores = wordToSend.transformToUnderscores()
+        val drawingUsername = (drawingPlayer ?: players.random()).username
+        val gameStateForDrawingPlayer = GameState(
+            drawingUsername,
+            wordToSend
+        )
+        val gameStateForGuessingPlayers = GameState(
+            drawingUsername,
+            wordWithUnderScores
+        )
+        GlobalScope.launch {
+            broadcastToAllExcept(
+                gson.toJson(gameStateForGuessingPlayers),
+                drawingPlayer?.clientId ?: players.random().clientId
+            )
+            drawingPlayer?.socket?.send(Frame.Text(gson.toJson(gameStateForDrawingPlayer)))
 
+            timeAndNotify(DELAY_GAME_RUNNING_TO_SHOW_WORD)
+        }
     }
 
     private fun showWord() {
@@ -162,6 +186,8 @@ data class Room(
             timeAndNotify(DELAY_SHOW_WORD_TO_NEW_ROUND)
             val phaseChange = PhaseChange(Phase.SHOW_WORD, DELAY_SHOW_WORD_TO_NEW_ROUND)
             broadcast(gson.toJson(phaseChange))
+
+            println("Drawing phase in room $name started. It'll last ${DELAY_GAME_RUNNING_TO_SHOW_WORD / 1000}s")
         }
     }
 
@@ -177,7 +203,7 @@ data class Room(
         const val UPDATE_TIME_FREQUENCY = 1000L
         const val DELAY_WAITING_FOR_START_TO_NEW_ROUND = 10000L
         const val DELAY_NEW_ROUND_TO_GAME_RUNNING = 20000L
-        const val DELAY_GAME_RUNNING = 60000L
+        const val DELAY_GAME_RUNNING_TO_SHOW_WORD = 60000L
         const val DELAY_SHOW_WORD_TO_NEW_ROUND = 10000L
 
         const val PENALTY_NOBODY_GUESSED_IT = 50
