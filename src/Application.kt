@@ -38,12 +38,6 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 
-    install(ContentNegotiation) {
-        gson {
-        }
-    }
-
-    install(CallLogging)
     install(WebSockets)
     install(Routing) {
         createRoomRoute()
@@ -51,5 +45,12 @@ fun Application.module(testing: Boolean = false) {
         joinRoomRoute()
         gameWebSocketRoute()
     }
+
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    install(CallLogging)
 }
 
