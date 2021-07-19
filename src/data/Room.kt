@@ -83,14 +83,14 @@ data class Room(
                 drawingPlayer?.username
             )
             repeat((ms / UPDATE_TIME_FREQUENCY).toInt()) {
-                if(it != 0) {
+                if (it != 0) {
                     phaseChange.phase = null
                 }
                 broadcast(gson.toJson(phaseChange))
                 phaseChange.time -= UPDATE_TIME_FREQUENCY
                 delay(UPDATE_TIME_FREQUENCY)
             }
-            phase = when(phase) {
+            phase = when (phase) {
                 Phase.WAITING_FOR_START -> Phase.NEW_ROUND
                 Phase.GAME_RUNNING -> Phase.SHOW_WORD
                 Phase.SHOW_WORD -> Phase.NEW_ROUND
@@ -188,7 +188,7 @@ data class Room(
 
     private fun showWord() {
         GlobalScope.launch {
-            if(winningPlayers.isEmpty()) {
+            if (winningPlayers.isEmpty()) {
                 drawingPlayer?.let {
                     it.score -= PENALTY_NOBODY_GUESSED_IT
                 }
@@ -207,7 +207,7 @@ data class Room(
 
     private fun addWinningPlayer(username: String): Boolean {
         winningPlayers = winningPlayers + username
-        if(winningPlayers.size == players.size - 1) {
+        if (winningPlayers.size == players.size - 1) {
             phase = Phase.NEW_ROUND
             return true
         }
@@ -215,11 +215,11 @@ data class Room(
     }
 
     suspend fun checkWordAndNotifyPlayers(message: ChatMessage): Boolean {
-        if(isGuessCorrect(message)) {
+        if (isGuessCorrect(message)) {
             val guessingTime = System.currentTimeMillis() - startTime
             val timePercentageLeft = 1F - guessingTime.toFloat() / DELAY_GAME_RUNNING_TO_SHOW_WORD
             val score = GUESS_SCORE_DEFAULT + GUESS_SCORE_PERCENTAGE_MULTIPLIER * timePercentageLeft
-            val player = players.find { it.username == message.from}
+            val player = players.find { it.username == message.from }
 
             player?.let {
                 it.score += score.toInt()
@@ -235,7 +235,7 @@ data class Room(
             )
             broadcast(gson.toJson(announcement))
             val isRoundOver = addWinningPlayer((message.from))
-            if(isRoundOver) {
+            if (isRoundOver) {
                 val roundOverAnnouncement = Announcement(
                     "Everybody guessed it! New round is starting..",
                     System.currentTimeMillis(),
@@ -248,17 +248,42 @@ data class Room(
         return false
     }
 
+    private suspend fun sendWordToPlayer(player: Player) {
+        val delay = when (phase) {
+            Phase.WAITING_FOR_START -> DELAY_WAITING_FOR_START_TO_NEW_ROUND
+            Phase.NEW_ROUND -> DELAY_NEW_ROUND_TO_GAME_RUNNING
+            Phase.GAME_RUNNING -> DELAY_GAME_RUNNING_TO_SHOW_WORD
+            Phase.SHOW_WORD -> DELAY_SHOW_WORD_TO_NEW_ROUND
+            else -> 0L
+        }
+        val phaseChange = PhaseChange(phase, delay, drawingPlayer?.username)
+        word?.let { curWord ->
+            drawingPlayer?.let { drawingPlayer ->
+                val gameState = GameState(
+                    drawingPlayer.username,
+                    if(player.isDrawing || phase == Phase.SHOW_WORD) {
+                        curWord
+                    } else {
+                        curWord.transformToUnderscores()
+                    }
+                )
+                player.socket.send(Frame.Text(gson.toJson(gameState)))
+            }
+        }
+        player.socket.send(Frame.Text(gson.toJson(phaseChange)))
+    }
+
     private fun nextDrawingPlayer() {
         drawingPlayer?.isDrawing = false
-        if(players.isEmpty()) {
+        if (players.isEmpty()) {
             return
         }
 
-        drawingPlayer = if(drawingPlayerIndex <= players.size - 1) {
+        drawingPlayer = if (drawingPlayerIndex <= players.size - 1) {
             players[drawingPlayerIndex]
         } else players.last()
 
-        if(drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
+        if (drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
         else drawingPlayerIndex = 0
     }
 
